@@ -1,1 +1,111 @@
+-- [[ SOURCE INITIALIZATION ]]
+-- Executing target hub layout codebase
+local success, err = pcall(function()
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/Xavier1021-ako/NavyHubRework/refs/heads/main/Source"))()
+end)
+if not success then
+    warn("Source loadstring failed to initialize: " .. tostring(err))
+end
+
+-- [[ UTILITY ENGINES: FLY & SPRINT MECHANICS ]]
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+
+local LocalPlayer = Players.LocalPlayer
+local Character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+local Humanoid = Character:WaitForChild("Humanoid")
+local RootPart = Character:WaitForChild("HumanoidRootPart")
+
+-- State Controls
+local isFlying = false
+local isSprinting = false
+local flySpeed = 50
+local sprintSpeed = 32
+local normalSpeed = 16
+
+-- Flight Engine Components
+local bodyGyro, bodyVelocity
+local flyConnection
+
+LocalPlayer.CharacterAdded:Connect(function(newCharacter)
+    Character = newCharacter
+    Humanoid = Character:WaitForChild("Humanoid")
+    RootPart = Character:WaitForChild("HumanoidRootPart")
+    if isFlying then
+        isFlying = false
+        toggleFlight()
+    end
+end)
+
+function toggleFlight()
+    isFlying = not isFlying
+    if isFlying then
+        -- Initialize flight vectors
+        bodyGyro = Instance.new("BodyGyro")
+        bodyGyro.P = 9e4
+        bodyGyro.maxTorque = Vector3.new(9e9, 9e9, 9e9)
+        bodyGyro.cframe = RootPart.CFrame
+        bodyGyro.Parent = RootPart
+
+        bodyVelocity = Instance.new("BodyVelocity")
+        bodyVelocity.velocity = Vector3.new(0, 0.1, 0)
+        bodyVelocity.maxForce = Vector3.new(9e9, 9e9, 9e9)
+        bodyVelocity.Parent = RootPart
+
+        Humanoid.PlatformStand = true
+
+        -- Core Movement Loop for Flight
+        flyConnection = RunService.RenderStepped:Connect(function()
+            local camera = workspace.CurrentCamera
+            local moveDirection = Vector3.new(0, 0, 0)
+
+            if UserInputService:IsKeyDown(Enum.KeyCode.W) then
+                moveDirection = moveDirection + camera.CFrame.LookVector
+            end
+            if UserInputService:IsKeyDown(Enum.KeyCode.S) then
+                moveDirection = moveDirection - camera.CFrame.LookVector
+            end
+            if UserInputService:IsKeyDown(Enum.KeyCode.A) then
+                moveDirection = moveDirection - camera.CFrame.RightVector
+            end
+            if UserInputService:IsKeyDown(Enum.KeyCode.D) then
+                moveDirection = moveDirection + camera.CFrame.RightVector
+            end
+            if UserInputService:IsKeyDown(Enum.KeyCode.Space) then
+                moveDirection = moveDirection + Vector3.new(0, 1, 0)
+            end
+            if UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) then
+                moveDirection = moveDirection - Vector3.new(0, 1, 0)
+            end
+
+            bodyGyro.cframe = camera.CFrame
+            bodyVelocity.velocity = moveDirection.Unit * (moveDirection.Magnitude > 0 and flySpeed or 0)
+        end)
+    else
+        -- Clean up flight components
+        if flyConnection then flyConnection:Disconnect() end
+        if bodyGyro then bodyGyro:Destroy() end
+        if bodyVelocity then bodyVelocity:Destroy() end
+        Humanoid.PlatformStand = false
+    end
+end
+
+function toggleSprint()
+    isSprinting = not isSprinting
+    if not isFlying then
+        Humanoid.WalkSpeed = isSprinting and sprintSpeed or normalSpeed
+    end
+end
+
+-- Keybind Listener mapping (F) for Fly and (T) for Sprint
+UserInputService.InputBegan:Connect(function(input, gameProcessedEvent)
+    if gameProcessedEvent then return end -- Ignores keypresses while typing in chat
+    
+    if input.KeyCode == Enum.KeyCode.F then
+        toggleFlight()
+    elseif input.KeyCode == Enum.KeyCode.T then
+        toggleSprint()
+    end
+end)
 
